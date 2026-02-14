@@ -23,26 +23,26 @@ app.use(express.json())
 
 const verifyFireBaseToken = async (req, res, next) => {
   console.log("In the verify middleware", req.headers.authorization)
-  // if(!req.headers.authorization){
-  //   //do not allow to go
-  //   return res.status(401).send({message : 'Unauthorized access'})
-  // }
-  // const token = req.headers.authorization.split(' ')[1];
-  // if(!token){
-  //   return res.status(401).send({message : 'Unauthorized access'})
-  // }
-  // //verify token
-  // try{
-  //   const decoded = await admin.auth().verifyIdToken(token)
-  //   req.token_email = decoded.email
-  //   console.log(decoded)
-  //   next();
-  // }
-  // catch{
-  //   console.log("Invalid token")
-  //   return res.status(401).send({message : 'Unauthorized access'})
-  // } 
-  next()
+  if(!req.headers.authorization){
+    //do not allow to go
+    return res.status(401).send({message : 'Unauthorized access'})
+  }
+  const token = req.headers.authorization.split(' ')[1];
+  if(!token){
+    return res.status(401).send({message : 'Unauthorized access'})
+  }
+  //verify token
+  try{
+    const decoded = await admin.auth().verifyIdToken(token)
+    req.token_email = decoded.email
+    console.log(decoded)
+    next();
+  }
+  catch{
+    console.log("Invalid token")
+    return res.status(401).send({message : 'Unauthorized access'})
+  } 
+  
 }
 
 
@@ -92,6 +92,13 @@ async function run() {
       }
     });
 
+    app.get('/users', verifyFireBaseToken, async(req,res) => {
+      const query = {}
+      const cursour =  userCollection.find(query)
+      const result = await cursour.toArray()
+      res.send(result)
+
+    })
 
     app.get('/users/:email', async (req, res) => {
       try {
@@ -115,21 +122,28 @@ async function run() {
 
 
     app.patch('/users/:email',  async (req, res) => {
-      const userEmail = req.body
-      // const query = {email: userEmail}
+      const userEmail = req.params.email
+      const query = {email: userEmail}
       
-      // const updateProfile = req.body
-      // const update = {
-      //   $set: {
-      //     name : updateProfile.name,
-      //     photo : updateProfile.photo
-      //   }
-      // }
+      const updateProfile = req.body
+      const update = {
+        $set: {
+          name : updateProfile.name,
+          photo : updateProfile.photo
+        }
+      }
+      const result = await userCollection.updateOne(query,update)
+      res.send(result)
+      
 
-      // const result = await userCollection.updateOne(query,update)
-      // res.send(result)
-      console.log(userEmail)
+    })
 
+    app.patch('/users/role/:email', verifyFireBaseToken, async(req,res)=>{
+      const email = req.params.email
+      const {role} = req.body
+
+      const result = await userCollection.updateOne({email}, {$set : {role}})
+      res.send(result)
     })
 
 
