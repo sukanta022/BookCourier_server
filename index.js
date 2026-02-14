@@ -66,6 +66,7 @@ async function run() {
 
     const database = client.db('bookCouriar_db')
     const userCollection = database.collection('users')
+    const bookCollection = database.collection('books')
 
     //users api
     app.post('/users', async (req, res) => {
@@ -143,6 +144,25 @@ async function run() {
       const {role} = req.body
 
       const result = await userCollection.updateOne({email}, {$set : {role}})
+      res.send(result)
+    })
+
+
+
+    //books API
+    app.post('/books', verifyFireBaseToken, async(req,res) => {
+      const librarianEmail = req.query.email
+      
+      if(librarianEmail){
+        if(librarianEmail != req.token_email){
+          return;
+        }
+      }
+
+      const newBooks = req.body
+      newBooks.createdAt = new Date()
+
+      const result = await bookCollection.insertOne(newBooks)
       res.send(result)
     })
 
