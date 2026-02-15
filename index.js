@@ -67,7 +67,7 @@ async function run() {
     const database = client.db('bookCouriar_db')
     const userCollection = database.collection('users')
     const bookCollection = database.collection('books')
-
+    const cartCollection = database.collection('cart')
     //users api
     app.post('/users', async (req, res) => {
       try {
@@ -198,6 +198,23 @@ async function run() {
       const result = await bookCollection.updateOne(query, update);
       res.send(result);
     });
+
+    //cart api
+    app.post('/carts', verifyFireBaseToken, async(req,res) => {
+      const cartEmail = req.query.email;
+
+      if (cartEmail) {
+        if (cartEmail != req.token_email) {
+          return res.status(403).send({ message: "Forbidden access" });
+        }
+      }
+
+      const newCart = req.body
+      newCart.createdAt = new Date()
+
+      const result = await cartCollection.insertOne(newCart)
+      res.send(result)
+    })
 
 
     await client.db("admin").command({ ping: 1 });
