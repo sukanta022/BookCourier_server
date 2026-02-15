@@ -140,6 +140,13 @@ async function run() {
 
     })
 
+    app.get('/users/:email/role', async (req, res) => {
+      const email = req.params.email;
+      const query = { email }
+      const user = await userCollection.findOne(query);
+      res.send({ role: user?.role || 'user' })
+    })
+
     app.patch('/users/role/:email', verifyFireBaseToken, async (req, res) => {
       const email = req.params.email
       const { role } = req.body
@@ -321,7 +328,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/accept-invoice/:id',verifyFireBaseToken, async (req, res) => {
+    app.patch('/accept-invoice/:id', verifyFireBaseToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
 
@@ -336,15 +343,16 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/my-invoices',verifyFireBaseToken, async (req, res) => {
-      
+    app.get('/my-invoices', verifyFireBaseToken, async (req, res) => {
+
       const email = req.query.email;
       if (email) {
         if (email != req.token_email) {
           return res.status(403).send({ message: "Forbidden access" });
         }
       }
-      const result = await cartCollection.find({userEmail: email, invoice: "approved"
+      const result = await cartCollection.find({
+        userEmail: email, invoice: "approved"
       }).sort({ createdAt: -1 }).toArray();
 
       res.send(result);
