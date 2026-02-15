@@ -23,26 +23,26 @@ app.use(express.json())
 
 const verifyFireBaseToken = async (req, res, next) => {
   console.log("In the verify middleware", req.headers.authorization)
-  if(!req.headers.authorization){
+  if (!req.headers.authorization) {
     //do not allow to go
-    return res.status(401).send({message : 'Unauthorized access'})
+    return res.status(401).send({ message: 'Unauthorized access' })
   }
   const token = req.headers.authorization.split(' ')[1];
-  if(!token){
-    return res.status(401).send({message : 'Unauthorized access'})
+  if (!token) {
+    return res.status(401).send({ message: 'Unauthorized access' })
   }
   //verify token
-  try{
+  try {
     const decoded = await admin.auth().verifyIdToken(token)
     req.token_email = decoded.email
     console.log(decoded)
     next();
   }
-  catch{
+  catch {
     console.log("Invalid token")
-    return res.status(401).send({message : 'Unauthorized access'})
-  } 
-  
+    return res.status(401).send({ message: 'Unauthorized access' })
+  }
+
 }
 
 
@@ -93,9 +93,9 @@ async function run() {
       }
     });
 
-    app.get('/users', verifyFireBaseToken, async(req,res) => {
+    app.get('/users', verifyFireBaseToken, async (req, res) => {
       const query = {}
-      const cursour =  userCollection.find(query)
+      const cursour = userCollection.find(query)
       const result = await cursour.toArray()
       res.send(result)
 
@@ -122,39 +122,39 @@ async function run() {
     })
 
 
-    app.patch('/users/:email',  async (req, res) => {
+    app.patch('/users/:email', async (req, res) => {
       const userEmail = req.params.email
-      const query = {email: userEmail}
-      
+      const query = { email: userEmail }
+
       const updateProfile = req.body
       const update = {
         $set: {
-          name : updateProfile.name,
-          photo : updateProfile.photo
+          name: updateProfile.name,
+          photo: updateProfile.photo
         }
       }
-      const result = await userCollection.updateOne(query,update)
+      const result = await userCollection.updateOne(query, update)
       res.send(result)
-      
+
 
     })
 
-    app.patch('/users/role/:email', verifyFireBaseToken, async(req,res)=>{
+    app.patch('/users/role/:email', verifyFireBaseToken, async (req, res) => {
       const email = req.params.email
-      const {role} = req.body
+      const { role } = req.body
 
-      const result = await userCollection.updateOne({email}, {$set : {role}})
+      const result = await userCollection.updateOne({ email }, { $set: { role } })
       res.send(result)
     })
 
 
 
     //books API
-    app.post('/books', verifyFireBaseToken, async(req,res) => {
+    app.post('/books', verifyFireBaseToken, async (req, res) => {
       const librarianEmail = req.query.email
-      
-      if(librarianEmail){
-        if(librarianEmail != req.token_email){
+
+      if (librarianEmail) {
+        if (librarianEmail != req.token_email) {
           return;
         }
       }
@@ -166,6 +166,38 @@ async function run() {
       res.send(result)
     })
 
+    app.get('/books', async (req, res) => {
+      const cursour = bookCollection.find()
+      const result = await cursour.toArray()
+      res.send(result)
+    })
+
+    app.patch('/books/:id', verifyFireBaseToken, async (req, res) => {
+      const librarianEmail = req.query.email;
+
+      if (librarianEmail && librarianEmail !== req.token_email) {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
+
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updateBook = req.body;
+
+      const update = {
+        $set: {
+          title: updateBook.title,
+          author: updateBook.author,
+          description: updateBook.description,
+          price: updateBook.price,
+          status: updateBook.status,
+          quantity: updateBook.quantity,
+          photo: updateBook.photo
+        }
+      };
+
+      const result = await bookCollection.updateOne(query, update);
+      res.send(result);
+    });
 
 
     await client.db("admin").command({ ping: 1 });
