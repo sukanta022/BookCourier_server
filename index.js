@@ -200,7 +200,7 @@ async function run() {
     });
 
     //cart api
-    app.post('/carts', verifyFireBaseToken, async(req,res) => {
+    app.post('/carts', verifyFireBaseToken, async (req, res) => {
       const cartEmail = req.query.email;
 
       if (cartEmail) {
@@ -211,10 +211,37 @@ async function run() {
 
       const newCart = req.body
       newCart.createdAt = new Date()
-
+      newCart.transectionID = "";
       const result = await cartCollection.insertOne(newCart)
       res.send(result)
     })
+
+    app.get('/carts/:email', verifyFireBaseToken, async (req, res) => {
+      const cartEmail = req.params.email;
+
+      if (cartEmail !== req.token_email) {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
+
+      const query = { userEmail: cartEmail };
+      const cursor = cartCollection.find(query);
+      const result = await cursor.toArray();
+
+      res.send(result);
+    });
+
+    app.delete("/carts/:id", verifyFireBaseToken, async (req, res) => {
+      const cartEmail = req.query.email;
+
+      if (cartEmail !== req.token_email) {
+        return res.status(403).send({ message: "Forbidden" });
+      }
+
+      const id = req.params.id;
+      const result = await cartCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+
 
 
     await client.db("admin").command({ ping: 1 });
