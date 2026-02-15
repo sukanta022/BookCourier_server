@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 require('dotenv').config()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const stripe = require('stripe')(process.env.STRIPE_SECRET);
 const app = express()
 const port = process.env.PORT || 3000
 
@@ -241,6 +242,38 @@ async function run() {
       const result = await cartCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
     });
+
+    //payment api
+    app.post('/payment-checkout-session', verifyFireBaseToken, async (req, res) => {
+      
+      console.log(req.body)
+      const paymentInfo = req.body;
+      const amount = parseInt(paymentInfo.cost) * 100;
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              unit_amount: amount,
+              product_data: {
+                name: `Please pay for: ${paymentInfo.bookName}`
+              }
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        metadata: {
+          cartID: paymentInfo.cartID
+        },
+        customer_email: paymentInfo.senderEmail,
+        success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/dashboard/carts`,
+      })
+
+      res.send({ url: session.url })
+    })
+
 
 
 
