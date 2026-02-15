@@ -140,6 +140,27 @@ async function run() {
 
     })
 
+    app.delete('/users/:email', verifyFireBaseToken, async (req, res) => {
+      const mail = req.params.email
+      if (mail) {
+        if (mail != req.token_email) {
+          return;
+        }
+      }
+      const query1 = { email: mail }
+      const query2 = { userEmail: mail }
+
+      const result1 = await userCollection.deleteOne(query1)
+      const result2 = await cartCollection.deleteOne(query2)
+
+      res.send({
+        success: true,
+        userDeleted: result1.deletedCount,
+        cartsDeleted: result2.deletedCount,
+        message: "User and related carts deleted successfully"
+      });
+    })
+
     app.get('/users/:email/role', async (req, res) => {
       const email = req.params.email;
       const query = { email }
