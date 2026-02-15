@@ -36,7 +36,6 @@ const verifyFireBaseToken = async (req, res, next) => {
   try {
     const decoded = await admin.auth().verifyIdToken(token)
     req.token_email = decoded.email
-    console.log(decoded)
     next();
   }
   catch {
@@ -69,6 +68,7 @@ async function run() {
     const userCollection = database.collection('users')
     const bookCollection = database.collection('books')
     const cartCollection = database.collection('cart')
+
     //users api
     app.post('/users', async (req, res) => {
       try {
@@ -213,6 +213,7 @@ async function run() {
       const newCart = req.body
       newCart.createdAt = new Date()
       newCart.transectionID = "";
+      newCart.invoice = "no"
       const result = await cartCollection.insertOne(newCart)
       res.send(result)
     })
@@ -245,8 +246,7 @@ async function run() {
 
     //payment api
     app.post('/payment-checkout-session', verifyFireBaseToken, async (req, res) => {
-      
-      console.log(req.body)
+
       const paymentInfo = req.body;
       const amount = parseInt(paymentInfo.cost) * 100;
       const session = await stripe.checkout.sessions.create({
@@ -264,7 +264,7 @@ async function run() {
         ],
         mode: 'payment',
         metadata: {
-          cartID: paymentInfo.cartID
+          cartID: paymentInfo.cartID,
         },
         customer_email: paymentInfo.senderEmail,
         success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
@@ -274,7 +274,81 @@ async function run() {
       res.send({ url: session.url })
     })
 
+    app.patch('/payment-success', async (req, res) => {
+      try {
+        const sessionId = req.query.session_id;
+        if (!sessionId) {
+          return res.status(400).json({ message: "Session ID missing" });
+        }
 
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        console.log('session retrieve', session);
+
+        let result = null;
+
+        if (session.payment_status === 'paid') {
+          const id = session.metadata.cartID;
+          const query = { _id: new ObjectId(id) };
+
+          const update = {
+            $set: {
+              transectionID: session.payment_intent,
+              invoice: "pending",
+              status: "paid"
+            }
+          };
+
+          result = await cartCollection.updateOne(query, update);
+        }
+
+        res.status(200).json({
+          success: true,
+          payment_status: session.payment_status,
+          sessionId,
+          dbUpdate: result
+        });
+
+      } catch (err) {
+        console.error("Stripe error:", err.message);
+        res.status(500).json({ success: false, message: "Stripe session failed" });
+      }
+    });
+
+    //invoice api
+    app.get('/pending-invoices', async (req, res) => {
+      const result = await cartCollection.find({ invoice: "pending" }).sort({ createdAt: -1 }).toArray();
+
+      res.send(result);
+    });
+
+    app.patch('/accept-invoice/:id',verifyFireBaseToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+
+      const update = {
+        $set: {
+          invoice: "approved",
+          status: "paid"
+        }
+      };
+
+      const result = await cartCollection.updateOne(query, update);
+      res.send(result);
+    });
+
+    app.get('/my-invoices',verifyFireBaseToken, async (req, res) => {
+      
+      const email = req.query.email;
+      if (email) {
+        if (email != req.token_email) {
+          return res.status(403).send({ message: "Forbidden access" });
+        }
+      }
+      const result = await cartCollection.find({userEmail: email, invoice: "approved"
+      }).sort({ createdAt: -1 }).toArray();
+
+      res.send(result);
+    });
 
 
     await client.db("admin").command({ ping: 1 });
